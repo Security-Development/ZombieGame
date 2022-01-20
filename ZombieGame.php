@@ -19,6 +19,7 @@ use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerInteractEvent;
 use pocketmine\event\player\PlayerJoinEvent;
 use pocketmine\event\player\PlayerQuitEvent;
+use pocketmine\event\server\ServerEvent;
 use pocketmine\inventory\transaction\action\SlotChangeAction;
 use pocketmine\item\ItemIds;
 use pocketmine\math\Vector3;
@@ -158,7 +159,7 @@ class ZombieGame extends PluginBase {
                         '인원' => $data['방']['인원'],
                         '인간' => $data['방']['인원'],
                         '좀비' => [],
-                        '시간' => (60 * 5) + 5
+                        '시간' => (60 * 5) + 30
                     ];
                     unset($data['방']);
                     unset($data['활성화']);
@@ -310,6 +311,16 @@ class ZombieGame extends PluginBase {
                                 $task->cancel();
                                 return;
                             }
+                                                        
+                            if( count($data['방']['인원']) <= 0 or (Server::getInstance()->getPlayerByPrefix($data['방']['방장'])) === null) {
+                                unset($data['방']);
+                                unset($data['활성화']);
+                                $this->data->setData($data);
+                                Server::getInstance()->broadcastMessage('좀비 게임이 종료 되었습니다. 이제 좀비 게임 방 생성이 가능합니다.');
+                                $task->cancel();
+                                return;
+                            }
+                                
 
                             if( $data['방']['대기시간'] <= 0 )
                             {
@@ -360,7 +371,7 @@ class ZombieGame extends PluginBase {
                             $player->getName()
                         ],
                         '방장' => $player->getName(),
-                        '대기시간' => 5
+                        '대기시간' => 60
                     ];
 
                     $data['활성화'] = true;
