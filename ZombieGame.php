@@ -513,17 +513,41 @@ class ZombieGame extends PluginBase {
                     return $result;
                 }
 
-                public function onQuit(PlayerQuitEvent $event) : void {
-                    $player = $event->getPlayer();
+                public function zombieGameKey(Player $player) : ?int {
+                    $result = null;
+                    $data = $this->data->getData();
 
-                    if( $this->isGamePlayer($player) ) {
-                        $data = $this->data->getData();
-                        $key = $this->playerGameKey($player);
+                    foreach($data['시작']['좀비'] as $key => $value){
+                        if( $value == $player->getName() )
+                        {
+                            $result = $key;
+                            break;
+                        }
+                    }
 
-                        if( $key === null )
-                            return;
+                    return $result;
+                }
 
-                        unset($data['시작']['인원'][$key]);
+                public function humanGameKey(Player $player) : ?int {
+                    $result = null;
+                    $data = $this->data->getData();
+
+                    foreach($data['시작']['인간'] as $key => $value){
+                        if( $value == $player->getName() )
+                        {
+                            $result = $key;
+                            break;
+                        }
+                    }
+
+                    return $result;
+                }
+
+                public function sendQuit(Player $player, ?int $key, string $index) : void {
+                    $data = $this->data->getData();
+
+                    if( $key !== null) {
+                        unset($data['시작'][$index][$key]);
                         $this->data->setData($data);
                         $this->joinClening();
 
@@ -532,6 +556,20 @@ class ZombieGame extends PluginBase {
                                 $players->sendMessage($player->getName().'님이 게임에서 나가셨습니다.');
                             }
                         );
+
+                    }
+                }
+
+                public function onQuit(PlayerQuitEvent $event) : void {
+                    $player = $event->getPlayer();
+
+                    if( $this->isGamePlayer($player) ) {
+                        $this->sendQuit($player, $this->playerGameKey($player), '인원');
+                        $this->sendQuit($player, $this->zombieGameKey($player), '좀비');
+                        $this->sendQuit($player, $this->humanGameKey($player), '인간');
+
+
+
                     }
                 }
 
