@@ -75,6 +75,11 @@ class ZombieGame extends PluginBase {
                         return;
                     }
 
+                    if( $this->checkPlayer($player) ) {
+                        $player->sendMessage('당신은 이미 대기방에 있습니다.');
+                        return;
+                    }
+
                     $data = $this->data->getData();
 
                     $data['방'][0]['인원'][] = $player->getName();
@@ -87,6 +92,12 @@ class ZombieGame extends PluginBase {
                         function(Player $players) use($player, $data): void {
                             $players->sendMessage($player->getName().'님께서 대기 방에 입장 하셨습니다. 현재인원 '.count($data['방'][0]['인원']).'명');
                         }
+                    );
+
+                    $vector = new Vector3(0, 96, -25);
+                    $player->teleport($vector);
+                    $player->getNetworkSession()->sendDataPacket(
+                        LevelSoundEventPacket::nonActorSound(LevelSoundEvent::RECORD_MELLOHI, $vector, false)
                     );
                     
                     ExtendsLib::setItem($player, 8, ItemIds::MAGMA_CREAM, "방 나가기");
@@ -212,18 +223,26 @@ class ZombieGame extends PluginBase {
                             unset($data['방'][$key]);
                             unset($data['활성화']);
                         }
-                        
+
+                        $player->sendMessage('당신은 좀비 게임 방을 삭제하셨습니다.');
+                        $this->executeRoomPlayers(
+                            function(Player $players) use($player) : void {
+                                
+                                $vector = (Server::getInstance()->getWorldManager()->getWorldByName('world'))->getSpawnLocation();
+                                $players->teleport($vector);
+                                $players->getNetworkSession()->sendDataPacket(
+                                    LevelSoundEventPacket::nonActorSound(LevelSoundEvent::STOP_RECORD, $vector, false)
+                                );
+
+                                if( $players->getName() == $player->getName() )
+                                    return;
+
+                                $players->sendMessage('방장이 좀비 게임 시작 전 방을 삭제 했습니다.');
+                            }
+                        );
+
                         $this->data->setData($data);
 
-                        //$this->keyClening();
-                        $player->sendMessage('당신은 좀비 게임 방을 삭제하셨습니다.');
-                        $vector = (Server::getInstance()->getWorldManager()->getWorldByName('world'))->getSpawnLocation();
-                        $player->teleport($vector);
-                        $player->getNetworkSession()->sendDataPacket(
-                            LevelSoundEventPacket::nonActorSound(LevelSoundEvent::STOP_RECORD, $vector, false)
-                        );
-                        // echo "key => ".$key."\n";
-                        // var_dump($this->data->getData())
                     } else {
                         $player->sendMessage('당신은 방을 생성 하지 않았습니다.');
                     }
