@@ -170,6 +170,11 @@ class ZombieGame extends PluginBase {
                             $data = $this->data->getData();
                             $time = $data['시작']['시간'];
 
+                            if( count($data['시작']['인원']) <= 0 or $time <= 0 or count($data['시작']['인간']) <= 0) {
+                                $this->finishGame();
+                                $task->cancel();
+                                return;
+                            }
 
                             $this->executeGamePlayers(
                                 function(Player $players) use($data, $time) : void {
@@ -184,16 +189,12 @@ class ZombieGame extends PluginBase {
                                     }
                                 }
                             );
-                            $data = $this->data->getData();
 
-                            if( count($data['시작']['인원']) <= 0 or $time <= 0 or count($data['시작']['좀비']) <= 0 or count($data['시작']['인간']) <= 0) {
-                                $this->finishGame();
-                                $task->cancel();
-                                return;
-                            }
+                            $data = $this->data->getData();
 
                             $data['시작']['시간'] -= 1;
                             $this->data->setData($data);
+
                         }
                     ), 20);
 
@@ -204,15 +205,12 @@ class ZombieGame extends PluginBase {
                 
                     $this->executeGamePlayers(
                         function(Player $players) use($data) : void {
-                            if( count($data['시작']['좀비']) <= 0 && count($data['시작']['좀비']) <= 0 ) {
-                                $players->sendMessage('무승부로 좀비 게임이 끝났습니다.');
-                            }
 
-                            if( count($data['시작']['좀비']) <= 0 ) {
+                            if( count($data['시작']['인간']) > 0 ) {
                                 $players->sendMessage('인간이 좀비 게임에서 승리했습니다.');
                             }
 
-                            if( count($data['시작']['좀비']) <= 0 ) {
+                            if( count($data['시작']['좀비']) > 0 ) {
                                 $players->sendMessage('좀비가 좀비 게임에서 승리했습니다.');
                             }
                             
