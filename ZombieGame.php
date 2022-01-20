@@ -123,6 +123,8 @@ class ZombieGame extends PluginBase {
                 }
 
                 private function startGame() : void {
+                    $data = $this->data->getData();
+
 
                 }
 
@@ -233,10 +235,11 @@ class ZombieGame extends PluginBase {
                                 $players->getNetworkSession()->sendDataPacket(
                                     LevelSoundEventPacket::nonActorSound(LevelSoundEvent::STOP_RECORD, $vector, false)
                                 );
+                                ExtendsLib::setItem($players, 8, ItemIds::BOOK, '좀비 게임');
 
                                 if( $players->getName() == $player->getName() )
                                     return;
-
+                                
                                 $players->sendMessage('방장이 좀비 게임 시작 전 방을 삭제 했습니다.');
                             }
                         );
@@ -247,7 +250,6 @@ class ZombieGame extends PluginBase {
                         $player->sendMessage('당신은 방을 생성 하지 않았습니다.');
                     }
 
-                    ExtendsLib::setItem($player, 8, ItemIds::BOOK, '좀비 게임');
                 }
 
                 private function reverseBool(Player $player) : void {
