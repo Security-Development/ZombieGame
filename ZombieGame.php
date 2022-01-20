@@ -18,6 +18,7 @@ use pocketmine\event\inventory\InventoryTransactionEvent;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerInteractEvent;
 use pocketmine\event\player\PlayerJoinEvent;
+use pocketmine\event\player\PlayerQuitEvent;
 use pocketmine\inventory\transaction\action\SlotChangeAction;
 use pocketmine\item\ItemIds;
 use pocketmine\math\Vector3;
@@ -122,6 +123,22 @@ class ZombieGame extends PluginBase {
                     $this->data->setData($result);
                 }
 
+                private function joinClening() : void {
+                    if( !isset(($this->data->getData())['시작']) )
+                        return;
+
+                    $data = ($this->data->getData())['시작']['인원'];
+                    $arr = [];
+
+                    foreach($data as $value) {
+                        $arr[] = $value;
+                    }
+                    $result = $this->data->getData();
+                    $result['시작']['인원'] = $arr;
+
+                    $this->data->setData($result);
+                }
+
                 private function startGame() : void {
                     $data = $this->data->getData();
                     $task = null;
@@ -169,11 +186,15 @@ class ZombieGame extends PluginBase {
                 private function finishGame() : void {
                     $data = $this->data->getData();
 
-                    $this->executeGamePlayers(
-                        function(Player $players) : void {
-                            $players->teleport((Server::getInstance()->getWorldManager()->getWorldByName('world'))->getSpawnLocation());
-                        }
-                    );
+                    if( count($data['시작']['인원']) <= 0 )
+                    {
+                        $this->executeGamePlayers(
+                            function(Player $players) : void {
+                                $players->teleport((Server::getInstance()->getWorldManager()->getWorldByName('world'))->getSpawnLocation());
+                                ExtendsLib::setItem($players, 8, ItemIds::BOOK, '좀비 게임');
+                            }
+                        );
+                    }
 
                     unset($data['시작']);
                     $this->data->setData($data);
@@ -451,6 +472,37 @@ class ZombieGame extends PluginBase {
                         return;
 
                     ExtendsLib::setItem($player, 8, ItemIds::BOOK, '좀비 게임');
+                }
+
+                public function playerGameKey(Player $player) : ?int {
+                    $result = null;
+                    $data = $this->data->getData();
+
+                    foreach($data['시작']['인원'] as $key => $value){
+                        if( $value == $player->getName() )
+                        {
+                            $result = $key;
+                            break;
+                        }
+                    }
+
+                    return $result;
+                }
+
+                public function onQuit(PlayerQuitEvent $event) : void {
+                    $player = $event->getPlayer();
+
+                    if( $this->isGamePlayer($player) ) {
+                        $data = $this->data->getData();
+                        $key = $this->playerGameKey($player);
+
+                        if( $key === null )
+                            return;
+
+                        unset($data['시작']['인원'][$key]);
+                        $this->data->setData($data);
+                        $this->joinClening();
+                    }
                 }
 
             }
