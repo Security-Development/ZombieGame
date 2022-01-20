@@ -137,14 +137,24 @@ class ZombieGame extends PluginBase {
                     $task = $this->task->scheduleRepeatingTask(new ClosureTask(
                         function() use(&$task) : void {
                             $data = $this->data->getData();
+                            $time = $data['시작']['시간'];
+
+                            if( count($data['시작']['인원']) <= 0 or $time <= 0) {
+                                $this->finishGame();
+                                $task->cancel();
+                                return;
+                            }
 
                             $this->executeGamePlayers(
-                                function(Player $players) use($data) : void {
-                                    $time = $data['시작']['시간'];
+                                function(Player $players) use($data, $time) : void {
                                     if( $time > (60 * 5)) {
                                         $players->sendTitle(' ', '좀비 감여자가 '.($time - (60 * 5)).'초 후에 선정됩니다.');
                                     } else {
+                                        if( $time == (60 * 5) ) {
+                                            $players->sendTitle(' ', '좀비 감염자가 발생 했습니다.');
+                                        }
 
+                                        $players->sendTip('게임 종료까지 '.$time.'초 남았습니다.');
                                     }
                                 }
                             );
@@ -157,7 +167,18 @@ class ZombieGame extends PluginBase {
                 }
 
                 private function finishGame() : void {
-                    
+                    $data = $this->data->getData();
+
+                    $this->executeGamePlayers(
+                        function(Player $players) : void {
+                            $players->teleport((Server::getInstance()->getWorldManager()->getWorldByName('world'))->getSpawnLocation());
+                        }
+                    );
+
+                    unset($data['시작']);
+                    $this->data->setData($data);
+
+                    Server::getInstance()->broadcastMessage('좀비 게임이 종료 되었습니다. 이제 좀비 게임 방 생성이 가능합니다.');
                 }
 
                 private function isGamePlayer(Player $player) : bool {
