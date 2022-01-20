@@ -124,20 +124,79 @@ class ZombieGame extends PluginBase {
 
                 private function startGame() : void {
                     $data = $this->data->getData();
+                    $task = null;
 
+                    $data['시작'] = [ 
+                        '인원' => $data['방'][0]['인원'],
+                        '시간' => (60 * 5) + 20
+                    ];
+                    unset($data['방']);
+                    unset($data['활성화']);
+                    $this->data->setData($data);
 
+                    $task = $this->task->scheduleRepeatingTask(new ClosureTask(
+                        function() use(&$task) : void {
+                            $data = $this->data->getData();
+
+                            $this->executeGamePlayers(
+                                function(Player $players) use($data) : void {
+                                    $time = $data['시작']['시간'];
+                                    if( $time > (60 * 5)) {
+                                        $players->sendTitle(' ', '좀비 감여자가 '.($time - (60 * 5)).'초 후에 선정됩니다.');
+                                    } else {
+
+                                    }
+                                }
+                            );
+
+                            $data['시작']['시간'] -= 1;
+                            $this->data->setData($data);
+                        }
+                    ), 20);
+
+                }
+
+                private function finishGame() : void {
+                    
+                }
+
+                private function isGamePlayer(Player $player) : bool {
+                    $result = false;
+                    $data = $this->data->getData();
+
+                    foreach($data['시작']['인원'] as $value) {
+                        if( $value == $player->getName() )
+                        {
+                            $result = true;
+                            break;
+                        }
+
+                    }
+
+                    return $result;
+                }
+
+                private function executeGamePlayers(Closure $funcion) : void {
+                    ExtendsLib::executePlayers(
+                        function(Player $players) use($funcion): void {
+                            if( $this->isGamePlayer($players) )
+                            {
+                                $funcion($players);
+                            }
+                        });
                 }
 
                 private function checkPlayer(Player $player) : bool {
                     $result = false;
                     $data = $this->data->getData();
 
-                    foreach($data['방'][0]['인원'] as $value){
+                    foreach($data['방'][0]['인원'] as $value) {
                         if( $value == $player->getName() )
                         {
                             $result = true;
                             break;
                         }
+
                     }
 
                     return $result;
@@ -166,7 +225,19 @@ class ZombieGame extends PluginBase {
                             }
 
                             if( $data['방'][0]['대기시간'] <= 0 )
+                            {
+                                $this->executeRoomPlayers(
+                                    function(Player $players) : void {
+                                        $players->getNetworkSession()->sendDataPacket(
+                                            LevelSoundEventPacket::nonActorSound(LevelSoundEvent::STOP_RECORD, new Vector3(0, 96, -25), false)
+                                        );
+                                        ExtendsLib::setItem($players, 8, ItemIds::AIR);
+                                    }
+                                );
                                 $this->startGame();
+                                $task->cancel();
+                                return;
+                            }
 
                             $this->executeRoomPlayers(
                                 function(Player $players) use($data) : void {                                    
@@ -185,6 +256,11 @@ class ZombieGame extends PluginBase {
 
                 private function CreateRoom(Player $player) : void {
                     $data = $this->data->getData();
+
+                    if( isset($data['시작']) ) {
+                        $player->sendMessage('이미 좀비 게임이 시작 되었습니다. 다음판을 기다려주세요.');
+                        return;
+                    }
                     
                     if( isset($data['방'][0]) ) {
                         $player->sendMessage('이미 '.$data['방'][0]['방장'].'님이 방을 생성 했습니다.');
@@ -197,7 +273,7 @@ class ZombieGame extends PluginBase {
                             $player->getName()
                         ],
                         '방장' => $player->getName(),
-                        '대기시간' => 60
+                        '대기시간' => 5
                     ];
 
                     $data['활성화'] = true;
@@ -278,8 +354,11 @@ class ZombieGame extends PluginBase {
                                 $event->cancel();
 
                             }
+
                         }
+
                     }
+
                 }
 
                 public function onTouch(PlayerInteractEvent $event) : void { 
