@@ -53,6 +53,7 @@ class ZombieGame extends PluginBase {
 
                     $body = new SimpleForm(
                         function(Player $soruce, $data) : void {
+                            $this->JoinRoom($soruce);
                         } 
                     );
                     $body->setTitle('방 목록');
@@ -68,28 +69,46 @@ class ZombieGame extends PluginBase {
                     $body->sendToPlayer($player);
                 }
 
-                private function JoinRoom(Player $player, int $index) : void {
-                    if( !isset(($this->data->getData())['방'][$index]) ) {
+                private function JoinRoom(Player $player) : void {
+                    if( !isset(($this->data->getData())['방'][0]) ) {
                         $player->sendMessage('해당 방이 사라졌습니다.');
                         return;
                     }
 
+                    $data = $this->data->getData();
+
+                    $data['방'][0]['인원'][] = $player->getName();
+
+                    $this->data->setData($data);
+
+                    $this->keyClening();
+
+                    $this->executeRoomPlayers(
+                        function(Player $players) use($player, $data): void {
+                            $players->sendMessage($player->getName().'님께서 대기 방에 입장 하셨습니다. 현재인원 '.count($data['방'][0]['인원']).'명');
+                        }
+                    );
+                    
+                    ExtendsLib::setItem($player, 8, ItemIds::MAGMA_CREAM, "방 나가기");
                     
                     
                 }
 
+
                 private function keyClening() : void {
-                    if( !isset(($this->data->getData())['방']) )
+                    if( !isset(($this->data->getData())['방'][0]) )
                         return;
 
-                    $data = ($this->data->getData())['방'];
+                    $data = ($this->data->getData())['방'][0]['인원'];
                     $arr = [];
 
                     foreach($data as $value) {
-                        $arr['방'][] = $value;
+                        $arr[] = $value;
                     }
+                    $result = $this->data->getData();
+                    $result['방'][0]['인원'] = $arr;
 
-                    $this->data->setData($arr);
+                    $this->data->setData($result);
                 }
 
                 private function startGame() : void {
@@ -100,23 +119,24 @@ class ZombieGame extends PluginBase {
                     $result = false;
                     $data = $this->data->getData();
 
-                    ExtendsLib::executePlayers(
-                        function(Player $player) use(&$result, $data) : void {
-                            foreach($data['방'][0]['인원'] as $name) {
-                                if( $player->getName() === $name) 
-                                    $result = true;
-                            }
+                    foreach($data['방'][0]['인원'] as $value){
+                        if( $value == $player->getName() )
+                        {
+                            $result = true;
+                            break;
                         }
-                    );
+                    }
+
                     return $result;
                 }
 
                 private function executeRoomPlayers(Closure $funcion) : void {
-                    $data = $this->data->getData();
                     ExtendsLib::executePlayers(
-                        function(Player $players) use($data, $funcion): void {
+                        function(Player $players) use($funcion): void {
                             if( $this->checkPlayer($players) )
+                            {
                                 $funcion($players);
+                            }
                         });
                 }
 
@@ -136,7 +156,7 @@ class ZombieGame extends PluginBase {
                                 $this->startGame();
 
                             $this->executeRoomPlayers(
-                                function(Player $players) use($data) : void {
+                                function(Player $players) use($data) : void {                                    
                                     $players->sendTip('게임 시작까지 '.$data['방'][0]['대기시간'].'초 남았습니다.');
                                 }
                             );
@@ -195,7 +215,7 @@ class ZombieGame extends PluginBase {
                         
                         $this->data->setData($data);
 
-                        $this->keyClening();
+                        //$this->keyClening();
                         $player->sendMessage('당신은 좀비 게임 방을 삭제하셨습니다.');
                         $vector = (Server::getInstance()->getWorldManager()->getWorldByName('world'))->getSpawnLocation();
                         $player->teleport($vector);
@@ -231,7 +251,7 @@ class ZombieGame extends PluginBase {
                     foreach($saction->getActions() as $action) {
                         if( $action instanceof SlotChangeAction ){
                             if( (match($action->getSourceItem()->getName()){
-                                '좀비 게임', '방 삭제' => true,
+                                '좀비 게임', '방 삭제', '방 나가기' => true,
                                 default => false
                             }) ) {
                                 $event->cancel();
