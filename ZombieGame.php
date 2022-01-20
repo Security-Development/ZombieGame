@@ -139,16 +139,30 @@ class ZombieGame extends PluginBase {
                     $this->data->setData($result);
                 }
 
+                private function selectRamdomZombie() : void {
+                    $data = $this->data->getData();
+                    $human = $data['시작']['인간'];
+                    $key = array_rand($human);
+
+                    unset($data['시작']['인간'][$key]);
+                    $data['시작']['좀비'] = [ $human[$key] ];
+
+                    $this->data->setData($data);
+                }
+
                 private function startGame() : void {
                     $data = $this->data->getData();
                     $task = null;
 
                     $data['시작'] = [ 
                         '인원' => $data['방'][0]['인원'],
-                        '시간' => (60 * 5) + 20
+                        '인간' => $data['방'][0]['인원'],
+                        '좀비' => [],
+                        '시간' => (60 * 5) + 5
                     ];
                     unset($data['방']);
                     unset($data['활성화']);
+
                     $this->data->setData($data);
 
                     $task = $this->task->scheduleRepeatingTask(new ClosureTask(
@@ -156,11 +170,6 @@ class ZombieGame extends PluginBase {
                             $data = $this->data->getData();
                             $time = $data['시작']['시간'];
 
-                            if( count($data['시작']['인원']) <= 0 or $time <= 0) {
-                                $this->finishGame();
-                                $task->cancel();
-                                return;
-                            }
 
                             $this->executeGamePlayers(
                                 function(Player $players) use($data, $time) : void {
@@ -168,13 +177,20 @@ class ZombieGame extends PluginBase {
                                         $players->sendTitle(' ', '좀비 감여자가 '.($time - (60 * 5)).'초 후에 선정됩니다.');
                                     } else {
                                         if( $time == (60 * 5) ) {
+                                            $this->selectRamdomZombie();
                                             $players->sendTitle(' ', '좀비 감염자가 발생 했습니다.');
                                         }
-
                                         $players->sendTip('게임 종료까지 '.$time.'초 남았습니다.');
                                     }
                                 }
                             );
+                            $data = $this->data->getData();
+
+                            if( count($data['시작']['인원']) <= 0 or $time <= 0 or count($data['시작']['좀비']) <= 0 or count($data['시작']['인간']) <= 0) {
+                                $this->finishGame();
+                                $task->cancel();
+                                return;
+                            }
 
                             $data['시작']['시간'] -= 1;
                             $this->data->setData($data);
@@ -185,16 +201,26 @@ class ZombieGame extends PluginBase {
 
                 private function finishGame() : void {
                     $data = $this->data->getData();
-
-                    if( count($data['시작']['인원']) <= 0 )
-                    {
-                        $this->executeGamePlayers(
-                            function(Player $players) : void {
-                                $players->teleport((Server::getInstance()->getWorldManager()->getWorldByName('world'))->getSpawnLocation());
-                                ExtendsLib::setItem($players, 8, ItemIds::BOOK, '좀비 게임');
+                
+                    $this->executeGamePlayers(
+                        function(Player $players) use($data) : void {
+                            if( count($data['시작']['좀비']) <= 0 && count($data['시작']['좀비']) <= 0 ) {
+                                $players->sendMessage('무승부로 좀비 게임이 끝났습니다.');
                             }
-                        );
-                    }
+
+                            if( count($data['시작']['좀비']) <= 0 ) {
+                                $players->sendMessage('인간이 좀비 게임에서 승리했습니다.');
+                            }
+
+                            if( count($data['시작']['좀비']) <= 0 ) {
+                                $players->sendMessage('좀비가 좀비 게임에서 승리했습니다.');
+                            }
+                            
+
+                            $players->teleport((Server::getInstance()->getWorldManager()->getWorldByName('world'))->getSpawnLocation());
+                            ExtendsLib::setItem($players, 8, ItemIds::BOOK, '좀비 게임');
+                        }
+                    );
 
                     unset($data['시작']);
                     $this->data->setData($data);
@@ -502,6 +528,12 @@ class ZombieGame extends PluginBase {
                         unset($data['시작']['인원'][$key]);
                         $this->data->setData($data);
                         $this->joinClening();
+
+                        $this->executeGamePlayers(
+                            function(Player $players) use($player) : void {
+                                $players->sendMessage($player->getName().'님이 게임에서 나가셨습니다.');
+                            }
+                        );
                     }
                 }
 
