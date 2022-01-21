@@ -14,12 +14,16 @@ use jojoe77777\FormAPI\SimpleForm;
 use pocketmine\entity\Skin;
 use pocketmine\event\block\BlockPlaceEvent;
 use pocketmine\event\entity\EntityDamageByEntityEvent;
+use pocketmine\event\entity\EntityDeathEvent;
 use pocketmine\event\entity\ProjectileHitEntityEvent;
 use pocketmine\event\inventory\InventoryTransactionEvent;
 use pocketmine\event\Listener;
+use pocketmine\event\player\PlayerDeathEvent;
+use pocketmine\event\player\PlayerDropItemEvent;
 use pocketmine\event\player\PlayerInteractEvent;
 use pocketmine\event\player\PlayerJoinEvent;
 use pocketmine\event\player\PlayerQuitEvent;
+use pocketmine\event\player\PlayerRespawnEvent;
 use pocketmine\event\server\ServerEvent;
 use pocketmine\inventory\transaction\action\SlotChangeAction;
 use pocketmine\item\ItemIds;
@@ -95,7 +99,7 @@ class ZombieGame extends PluginBase {
                         }
                     );
 
-                    $vector = new Vector3(0, 96, -25);
+                    $vector = new Vector3(28, 5, -83);
                     $player->teleport($vector);
                     $player->getNetworkSession()->sendDataPacket(
                         LevelSoundEventPacket::nonActorSound(LevelSoundEvent::RECORD_MELLOHI, $vector, false)
@@ -176,6 +180,26 @@ class ZombieGame extends PluginBase {
                     return $result;
                 }
 
+                private function infectionZombie(Player $player) : void {
+                    $data = $this->data->getData();
+
+                    if( $this->isGamePlayer($player, '인간') ) {
+                        $key = $this->playerGameKey($player, '인간');
+                        $data['시작']['좀비'][] = $data['시작']['인간'][$key];
+                        unset($data['시작']['인간'][$key]);
+                        $this->data->setData($data);
+                        $this->onCleaning();
+
+                        $this->executeGamePlayers(
+                            function(Player $players) use($player) : void {
+                                $players->sendMessage($player->getName().'님이 좀비 바이러스에 감염 되었습니다.');
+                            }
+                        );
+
+                        $this->setSkin($player, Server::getInstance()->getDataPath().'zombieSkin/Zombie.png');
+                    }
+                }
+
                 private function executeZombiePlayers(Closure $funcion) : void {
                     ExtendsLib::executePlayers(
                         function(Player $players) use($funcion): void {
@@ -220,25 +244,21 @@ class ZombieGame extends PluginBase {
                     ];
                     unset($data['방']);
                     unset($data['활성화']);
-                    $this->selectRamdomZombie();
 
                     $this->data->setData($data);
+
+                    $this->selectRamdomZombie();
 
                     $task = $this->task->scheduleRepeatingTask(new ClosureTask(
                         function() use(&$task) : void {
                             $data = $this->data->getData();
                             $time = $data['시작']['시간'];
 
-                            if( $time <= 0 or count($data['시작']['인원']) <= 0 or $time <= 0 or count($data['시작']['인간']) or count($data['시작']['좀비'])) {
+                            if( count($data['시작']['인원']) <= 0 or $time <= 0 or count($data['시작']['인간'])  <= 0 or count($data['시작']['좀비']) <= 0) {
                                 $this->finishGame();
                                 $task->cancel();
                                 return;
                             }
-
-                            if( $time  == (60 * 5) )
-                                $this->selectRamdomZombie();
-
-                            var_dump($data);
 
                             $this->executeGamePlayers(
                                 function(Player $players) use($data, $time) : void {
@@ -284,7 +304,7 @@ class ZombieGame extends PluginBase {
                             }
                             
 
-                            $players->teleport((Server::getInstance()->getWorldManager()->getWorldByName('world'))->getSpawnLocation());
+                            $players->teleport(new Vector3(10, 5, 20));
                             ExtendsLib::setItem($players, 8, ItemIds::BOOK, '좀비 게임');
                         }
                     );
@@ -379,7 +399,7 @@ class ZombieGame extends PluginBase {
                                 $this->executeRoomPlayers(
                                     function(Player $players) : void {
                                         $players->getNetworkSession()->sendDataPacket(
-                                            LevelSoundEventPacket::nonActorSound(LevelSoundEvent::STOP_RECORD, new Vector3(0, 96, -25), false)
+                                            LevelSoundEventPacket::nonActorSound(LevelSoundEvent::STOP_RECORD, new Vector3(10, 5, 20), false)
                                         );
                                         ExtendsLib::setItem($players, 8, ItemIds::AIR);
                                     }
@@ -432,7 +452,7 @@ class ZombieGame extends PluginBase {
                     $this->waitTime();
 
                     ExtendsLib::setItem($player, 8, ItemIds::REDSTONE, '방 삭제');
-                    $vector = new Vector3(0, 96, -25);
+                    $vector = new Vector3(28, 5, -83);
                     $player->teleport($vector);
                     $player->getNetworkSession()->sendDataPacket(
                         LevelSoundEventPacket::nonActorSound(LevelSoundEvent::RECORD_MELLOHI, $vector, false)
@@ -456,7 +476,7 @@ class ZombieGame extends PluginBase {
                         $this->executeRoomPlayers(
                             function(Player $players) use($player) : void {
                                 
-                                $vector = (Server::getInstance()->getWorldManager()->getWorldByName('world'))->getSpawnLocation();
+                                $vector = new Vector3(10, 5, 20);#(Server::getInstance()->getWorldManager()->getWorldByName('world'))->getSpawnLocation();
                                 $players->teleport($vector);
                                 $players->getNetworkSession()->sendDataPacket(
                                     LevelSoundEventPacket::nonActorSound(LevelSoundEvent::STOP_RECORD, $vector, false)
@@ -546,7 +566,7 @@ class ZombieGame extends PluginBase {
 
                     $player->sendMessage('당신은 게임에서 나가셨습니다.');
                     $player->getNetworkSession()->sendDataPacket(
-                        LevelSoundEventPacket::nonActorSound(LevelSoundEvent::STOP_RECORD, new Vector3(0, 96, -25), false)
+                        LevelSoundEventPacket::nonActorSound(LevelSoundEvent::STOP_RECORD, new Vector3(10, 5, 20), false)
                     );
 
                     ExtendsLib::setItem($player, 8, ItemIds::BOOK, "좀비 게임");
@@ -568,7 +588,14 @@ class ZombieGame extends PluginBase {
                 public function onHit(ProjectileHitEntityEvent $event) : void {
                 }
 
-                public function onDamage(EntityDamageByEntityEvent $evnet) : void {
+                public function onDamage(EntityDamageByEntityEvent $event) : void {
+                    if( ($entity = $event->getEntity()) instanceof Player && ($damager = $event->getDamager()) ) {
+                        if( $this->isZombiePlayer($damager)  && $this->isGamePlayer($entity, '인간') ) {
+                            $this->infectionZombie($entity);
+                        }
+                    }
+
+                    $event->cancel();
                 }
 
                 public function onInvHandle(InventoryTransactionEvent $event) : void {
@@ -647,6 +674,33 @@ class ZombieGame extends PluginBase {
                 public function onPlace(BlockPlaceEvent $event) : void {
                     if( $event->getItem()->getName() === '방 삭제' )
                         $event->cancel();
+                }
+
+                public function onDeath(EntityDeathEvent $event) : void {
+                    $drops = $event->getDrops();
+
+                    foreach($event->getDrops() as $key => $item)
+                    {
+                        if( $item->getName() === '좀비 게임' || $item->getName() == '방 삭제' || $item == '방 나가기')
+                            unset($drops[$key]);
+                    }
+
+                    $event->setDrops($drops);
+                }
+
+                public function onRespawn(PlayerRespawnEvent $event) : void {
+                    $player = $event->getPlayer();
+                    if( 
+                        !(
+                            $this->isGamePlayer($player, '인원') ||
+                            $this->isGamePlayer($player, '좀비') || 
+                            $this->isGamePlayer($player, '인간') ||
+                            $this->isRoomPlayer($player)
+                        )
+                     ) {
+                        ExtendsLib::setItem($player, 8, ItemIds::BOOK, '좀비 게임');
+
+                    }
                 }
 
                 public function onJoin(PlayerJoinEvent $event) : void {
