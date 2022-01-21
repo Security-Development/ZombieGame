@@ -124,20 +124,26 @@ class ZombieGame extends PluginBase {
                     $this->data->setData($result);
                 }
 
-                private function joinClening() : void {
+                private function joinClening(string $index) : void {
                     if( !isset(($this->data->getData())['시작']) )
                         return;
 
-                    $data = ($this->data->getData())['시작']['인원'];
+                    $data = ($this->data->getData())['시작'][$index];
                     $arr = [];
 
                     foreach($data as $value) {
                         $arr[] = $value;
                     }
                     $result = $this->data->getData();
-                    $result['시작']['인원'] = $arr;
+                    $result['시작'][$index] = $arr;
 
                     $this->data->setData($result);
+                }
+
+                private function onCleaning() : void {
+                    $this->joinClening('인원');
+                    $this->joinClening('좀비');
+                    $this->joinClening('인간');
                 }
 
                 private function selectRamdomZombie() : void {
@@ -149,6 +155,7 @@ class ZombieGame extends PluginBase {
                     $data['시작']['좀비'] = [ $human[$key] ];
 
                     $this->data->setData($data);
+                    $this->onCleaning();
                 }
 
                 private function startGame() : void {
@@ -470,7 +477,7 @@ class ZombieGame extends PluginBase {
                     if( $key !== null) {
                         unset($data[$id][$index][$key]);
                         $this->data->setData($data);
-                        $this->joinClening();
+                        $this->onCleaning();
 
                     }
                 }
