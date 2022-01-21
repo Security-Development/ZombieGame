@@ -11,6 +11,7 @@ namespace Neo;
 
 use Closure;
 use jojoe77777\FormAPI\SimpleForm;
+use pocketmine\entity\Skin;
 use pocketmine\event\block\BlockPlaceEvent;
 use pocketmine\event\entity\EntityDamageByEntityEvent;
 use pocketmine\event\entity\ProjectileHitEntityEvent;
@@ -156,6 +157,57 @@ class ZombieGame extends PluginBase {
                     $this->onCleaning();
                 }
 
+                private function isZombiePlayer(Player $player) : bool {
+                    $result = false;
+                    $data = $this->data->getData();
+
+                    if( isset($data['시작']) )
+                    {
+                        foreach($data['시작']['좀비'] as $value) {
+                            if( $value == $player->getName() )
+                            {
+                                $result = true;
+                                break;
+                            }
+    
+                        }
+                    }
+
+                    return $result;
+                }
+
+                private function executeZombiePlayers(Closure $funcion) : void {
+                    ExtendsLib::executePlayers(
+                        function(Player $players) use($funcion): void {
+                            if( $this->isZombiePlayer($players) )
+                            {
+                                $funcion($players);
+                            }
+                        });
+                }
+
+                # 참고 https://gist.github.com/robske110/5f93a00b2dee86b83497c437edfe4451
+                private function setSkin(Player $player, string $path) : void {
+                    $img = @imagecreatefrompng($path);
+                    $bytes = '';
+                    $l = (int) @getimagesize($path)[1];
+
+                    for ($y = 0; $y < $l; $y++) {
+                        for ($x = 0; $x < 64; $x++) {
+                            $rgba = @imagecolorat($img, $x, $y);
+                            $a = ((~((int)($rgba >> 24))) << 1) & 0xff;
+                            $r = ($rgba >> 16) & 0xff;
+                            $g = ($rgba >> 8) & 0xff;
+                            $b = $rgba & 0xff;
+                            $bytes .= chr($r) . chr($g) . chr($b) . chr($a);
+                        }
+                    }
+                    @imagedestroy($img);
+
+                    $player->setSkin(new Skin("Zomnbie", $bytes));
+                    $player->sendSkin();
+                }
+
                 private function startGame() : void {
                     $data = $this->data->getData();
                     $task = null;
@@ -177,7 +229,7 @@ class ZombieGame extends PluginBase {
                             $data = $this->data->getData();
                             $time = $data['시작']['시간'];
 
-                            if( count($data['시작']['인원']) <= 0 or $time <= 0 or count($data['시작']['인간']) or count($data['시작']['좀비'])) {
+                            if( $time <= 0 or count($data['시작']['인원']) <= 0 or $time <= 0 or count($data['시작']['인간']) or count($data['시작']['좀비'])) {
                                 $this->finishGame();
                                 $task->cancel();
                                 return;
@@ -193,8 +245,14 @@ class ZombieGame extends PluginBase {
                                     if( $time > (60 * 5)) {
                                         $players->sendTitle(' ', '좀비 감여자가 '.($time - (60 * 5)).'초 후에 선정됩니다.');
                                     } else {
-                                        if( $time == (60 * 5) ) 
+                                        if( $time == (60 * 5) ) {
                                             $players->sendTitle(' ', '좀비 감염자가 발생 했습니다.');
+                                            $this->executeZombiePlayers(
+                                                function(Player $zombie) : void {
+                                                    $this->setSkin($zombie, Server::getInstance()->getDataPath().'zombieSkin/Zombie.png');
+                                                }
+                                            );
+                                        }
 
                                         $players->sendTip('게임 종료까지 '.$time.'초 남았습니다.');
                                     }
