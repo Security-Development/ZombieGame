@@ -26,8 +26,8 @@ class ExtendsLib extends PluginBase {
         }
     }
 
-    public static function setItem(Player $player, int $slot, $id, string $name = "") : void{
-        $player->getInventory()->setItem(8, ($item = ItemFactory::getInstance()->get($id))->setCustomName(isset($name) ? $name : $item->getName()));
+    public static function setItem(Player $player, int $slot, $id, string $name = "", int $count = 1) : void{
+        $player->getInventory()->setItem(8, ($item = ItemFactory::getInstance()->get($id)->setCount($count))->setCustomName(isset($name) ? $name : $item->getName()) );
     }
 
 }
