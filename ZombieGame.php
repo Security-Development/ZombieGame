@@ -12,10 +12,13 @@ namespace Neo;
 use Closure;
 use jojoe77777\FormAPI\SimpleForm;
 use pocketmine\entity\Skin;
+use pocketmine\event\block\BlockBreakEvent;
 use pocketmine\event\block\BlockPlaceEvent;
 use pocketmine\event\entity\EntityDamageByEntityEvent;
+use pocketmine\event\entity\EntityDamageEvent;
 use pocketmine\event\entity\EntityDeathEvent;
 use pocketmine\event\entity\ProjectileHitEntityEvent;
+use pocketmine\event\entity\ProjectileLaunchEvent;
 use pocketmine\event\inventory\InventoryTransactionEvent;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerDeathEvent;
@@ -296,7 +299,7 @@ class ZombieGame extends PluginBase {
                     $this->executeGamePlayers(
                         function(Player $players) use($data) : void {
 
-                            if( count($data['시작']['인간']) > 0 ) {
+                            if( $data['시작']['시간'] <= 0 ) {
                                 $players->sendMessage('인간이 좀비 게임에서 승리했습니다.');
                             }
 
@@ -402,7 +405,11 @@ class ZombieGame extends PluginBase {
                                         $players->getNetworkSession()->sendDataPacket(
                                             LevelSoundEventPacket::nonActorSound(LevelSoundEvent::STOP_RECORD, new Vector3(10, 5, 20), false)
                                         );
-                                        ExtendsLib::setItem($players, 8, ItemIds::AIR);
+
+                                        $this->setSkin($players, Server::getInstance()->getDataPath().'zombieSkin/Human.png');
+                                        for($i = 0; $i < 36; $i++){
+                                            ExtendsLib::setItem($players, $i, ItemIds::SNOWBALL, "넉백용 눈덩이", 64);
+                                        }
 
                                         $players->teleport(new Vector3(10, 5, 20));
                                     }
@@ -591,22 +598,33 @@ class ZombieGame extends PluginBase {
                 public function onHit(ProjectileHitEntityEvent $event) : void {
                 }
 
+                public function FallDamge(EntityDamageEvent $event) : void {
+                    if( $event->getCause() === EntityDamageEvent::CAUSE_FALL )
+                        $event->cancel();
+                }
                 public function onDamage(EntityDamageByEntityEvent $event) : void {
                     $data = $this->data->getData();
                     if( !isset($data['시작']))
                         return;
 
-                    if( ($data['시작']['시간'] < (60 * 5)) )
+                    if( !($data['시작']['시간'] < (60 * 5)) )
                         return;
 
                     if( ($entity = $event->getEntity()) instanceof Player && ($damager = $event->getDamager()) ) {
                         if( $this->isZombiePlayer($damager)  && $this->isGamePlayer($entity, '인간') ) {
                             $this->infectionZombie($entity);
-                            $event->cancel();
                         }
                     }
 
                 }
+
+                public function onThrow(ProjectileLaunchEvent $event)  : void {
+                    $player = $event->getEntity()->getOwningEntity();
+                    if( $player instanceof Player ) {
+                        if( $this->isZombiePlayer($event->getEntity()->getOwningEntity()) )
+                            $event->cancel();
+                    }
+                } 
                 
                 public function onExhaust(PlayerExhaustEvent $event) : void {
                     $event->cancel();
@@ -685,7 +703,15 @@ class ZombieGame extends PluginBase {
                     
                 }
 
+                public function onBreak(BlockBreakEvent $event) : void {
+                    if( !(Server::getInstance()->isOp($event->getPlayer()->getName())) )
+                        $event->cancel();
+                }
+
                 public function onPlace(BlockPlaceEvent $event) : void {
+                    if( !(Server::getInstance()->isOp($event->getPlayer()->getName())) )
+                        $event->cancel();
+
                     if( $event->getItem()->getName() === '방 삭제' )
                         $event->cancel();
                 }
@@ -724,7 +750,6 @@ class ZombieGame extends PluginBase {
 
                     if( $player->getInventory()->getItem(8)->getCustomName() === '좀비 게임' )
                         return;
-
                     ExtendsLib::setItem($player, 8, ItemIds::BOOK, '좀비 게임');
                 }
 
