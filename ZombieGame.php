@@ -20,6 +20,7 @@ use pocketmine\event\inventory\InventoryTransactionEvent;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerDeathEvent;
 use pocketmine\event\player\PlayerDropItemEvent;
+use pocketmine\event\player\PlayerExhaustEvent;
 use pocketmine\event\player\PlayerInteractEvent;
 use pocketmine\event\player\PlayerJoinEvent;
 use pocketmine\event\player\PlayerQuitEvent;
@@ -240,7 +241,7 @@ class ZombieGame extends PluginBase {
                         '인원' => $data['방']['인원'],
                         '인간' => $data['방']['인원'],
                         '좀비' => [],
-                        '시간' => (60 * 5) + 5
+                        '시간' => (60 * 5) + 20
                     ];
                     unset($data['방']);
                     unset($data['활성화']);
@@ -402,6 +403,8 @@ class ZombieGame extends PluginBase {
                                             LevelSoundEventPacket::nonActorSound(LevelSoundEvent::STOP_RECORD, new Vector3(10, 5, 20), false)
                                         );
                                         ExtendsLib::setItem($players, 8, ItemIds::AIR);
+
+                                        $players->teleport(new Vector3(10, 5, 20));
                                     }
                                 );
                                 $this->startGame();
@@ -443,7 +446,7 @@ class ZombieGame extends PluginBase {
                             $player->getName()
                         ],
                         '방장' => $player->getName(),
-                        '대기시간' => 5
+                        '대기시간' => 60
                     ];
 
                     $data['활성화'] = true;
@@ -589,12 +592,23 @@ class ZombieGame extends PluginBase {
                 }
 
                 public function onDamage(EntityDamageByEntityEvent $event) : void {
+                    $data = $this->data->getData();
+                    if( !isset($data['시작']))
+                        return;
+
+                    if( ($data['시작']['시간'] < (60 * 5)) )
+                        return;
+
                     if( ($entity = $event->getEntity()) instanceof Player && ($damager = $event->getDamager()) ) {
                         if( $this->isZombiePlayer($damager)  && $this->isGamePlayer($entity, '인간') ) {
                             $this->infectionZombie($entity);
+                            $event->cancel();
                         }
                     }
 
+                }
+                
+                public function onExhaust(PlayerExhaustEvent $event) : void {
                     $event->cancel();
                 }
 
