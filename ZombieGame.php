@@ -200,6 +200,10 @@ class ZombieGame extends PluginBase {
                             }
                         );
 
+                        for($i = 0; $i < 36; $i++){
+                            ExtendsLib::setItem($player, $i, ItemIds::AIR);
+                        }
+
                         $this->setSkin($player, Server::getInstance()->getDataPath().'zombieSkin/Zombie.png');
                     }
                 }
@@ -274,6 +278,10 @@ class ZombieGame extends PluginBase {
                                             $this->executeZombiePlayers(
                                                 function(Player $zombie) : void {
                                                     $this->setSkin($zombie, Server::getInstance()->getDataPath().'zombieSkin/Zombie.png');
+
+                                                    for($i = 0; $i < 36; $i++){
+                                                        ExtendsLib::setItem($zombie, $i, ItemIds::AIR);
+                                                    }
                                                 }
                                             );
                                         }
