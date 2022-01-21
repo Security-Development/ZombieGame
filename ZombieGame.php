@@ -61,9 +61,7 @@ class ZombieGame extends PluginBase {
                     $body->setTitle('방 목록');
 
                     if( isset($data['방']) ) { 
-                        foreach($data['방'] as $key) {
-                            $body->addButton($key['방장'].'님의 방');
-                        }
+                        $body->addButton($data['방']['방장'].'님의 방');
                     } else {
                         $body->setContent('생성된 방이 없습니다.');
                     }
@@ -77,7 +75,7 @@ class ZombieGame extends PluginBase {
                         return;
                     }
 
-                    if( $this->checkPlayer($player) ) {
+                    if( $this->isRoomPlayer($player) ) {
                         $player->sendMessage('당신은 이미 대기방에 있습니다.');
                         return;
                     }
@@ -149,10 +147,10 @@ class ZombieGame extends PluginBase {
                 private function selectRamdomZombie() : void {
                     $data = $this->data->getData();
                     $human = $data['시작']['인간'];
-                    $key = array_rand($human);
+                    $key = array_rand($human, ceil((count($data['시작']['인원']) / 5)) );
 
                     unset($data['시작']['인간'][$key]);
-                    $data['시작']['좀비'] = [ $human[$key] ];
+                    $data['시작']['좀비'][] = $human[$key];
 
                     $this->data->setData($data);
                     $this->onCleaning();
@@ -166,10 +164,11 @@ class ZombieGame extends PluginBase {
                         '인원' => $data['방']['인원'],
                         '인간' => $data['방']['인원'],
                         '좀비' => [],
-                        '시간' => (60 * 5) + 30
+                        '시간' => (60 * 5) + 5
                     ];
                     unset($data['방']);
                     unset($data['활성화']);
+                    $this->selectRamdomZombie();
 
                     $this->data->setData($data);
 
@@ -178,21 +177,25 @@ class ZombieGame extends PluginBase {
                             $data = $this->data->getData();
                             $time = $data['시작']['시간'];
 
-                            if( count($data['시작']['인원']) <= 0 or $time <= 0 or count($data['시작']['인간']) <= 0) {
+                            if( count($data['시작']['인원']) <= 0 or $time <= 0 or count($data['시작']['인간']) or count($data['시작']['좀비'])) {
                                 $this->finishGame();
                                 $task->cancel();
                                 return;
                             }
+
+                            if( $time  == (60 * 5) )
+                                $this->selectRamdomZombie();
+
+                            var_dump($data);
 
                             $this->executeGamePlayers(
                                 function(Player $players) use($data, $time) : void {
                                     if( $time > (60 * 5)) {
                                         $players->sendTitle(' ', '좀비 감여자가 '.($time - (60 * 5)).'초 후에 선정됩니다.');
                                     } else {
-                                        if( $time == (60 * 5) ) {
-                                            $this->selectRamdomZombie();
+                                        if( $time == (60 * 5) ) 
                                             $players->sendTitle(' ', '좀비 감염자가 발생 했습니다.');
-                                        }
+
                                         $players->sendTip('게임 종료까지 '.$time.'초 남았습니다.');
                                     }
                                 }
@@ -281,26 +284,10 @@ class ZombieGame extends PluginBase {
                         });
                 }
 
-                private function checkPlayer(Player $player) : bool {
-                    $result = false;
-                    $data = $this->data->getData();
-
-                    foreach($data['방']['인원'] as $value) {
-                        if( $value == $player->getName() )
-                        {
-                            $result = true;
-                            break;
-                        }
-
-                    }
-
-                    return $result;
-                }
-
                 private function executeRoomPlayers(Closure $funcion) : void {
                     ExtendsLib::executePlayers(
                         function(Player $players) use($funcion): void {
-                            if( $this->checkPlayer($players) )
+                            if( $this->isRoomPlayer($players) )
                             {
                                 $funcion($players);
                             }
@@ -378,7 +365,7 @@ class ZombieGame extends PluginBase {
                             $player->getName()
                         ],
                         '방장' => $player->getName(),
-                        '대기시간' => 60
+                        '대기시간' => 5
                     ];
 
                     $data['활성화'] = true;
@@ -498,6 +485,20 @@ class ZombieGame extends PluginBase {
                     if( $this->isRoomPlayer($player) ) {
                         $this->sendQuit($player, '방', $this->playerRoomKey($player), '인원');
                     }
+
+                    $player->sendMessage('당신은 게임에서 나가셨습니다.');
+                    $player->getNetworkSession()->sendDataPacket(
+                        LevelSoundEventPacket::nonActorSound(LevelSoundEvent::STOP_RECORD, new Vector3(0, 96, -25), false)
+                    );
+
+                    ExtendsLib::setItem($player, 8, ItemIds::BOOK, "좀비 게임");
+
+                    $this->executeRoomPlayers(
+                        function(Player $players) use($player) : void {
+                            $players->sendMessage($player->getName().'님이 게임에서 나가셨습니다.');
+                        }
+                    );
+                    
 
                     $this->executeGamePlayers(
                         function(Player $players) use($player) : void {
