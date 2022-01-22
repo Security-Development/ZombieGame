@@ -278,11 +278,11 @@ class ZombieGame extends PluginBase {
                                         $players->sendTitle(' ', '좀비 감여자가 '.($time - (60 * 5)).'초 후에 선정됩니다.');
                                     } else {
                                         if( $time == (60 * 5) ) {
-                                            $players->sendTitle(' ', '좀비 감염자가 발생 했습니다.');
                                             $vector = $players->getLocation();
                                             $players->getNetworkSession()->sendDataPacket(
                                                 PlaySoundPacket::create("mob.enderdragon.growl", $vector->x, $vector->y, $vector->z, 0.1, 1)
                                             );
+                                            $players->sendTitle(' ', '좀비 감염자가 발생 했습니다.');
                                             
                                             $this->executeZombiePlayers(
                                                 function(Player $zombie) : void {
