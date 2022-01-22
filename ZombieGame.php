@@ -33,6 +33,7 @@ use pocketmine\inventory\transaction\action\SlotChangeAction;
 use pocketmine\item\ItemIds;
 use pocketmine\math\Vector3;
 use pocketmine\network\mcpe\protocol\LevelSoundEventPacket;
+use pocketmine\network\mcpe\protocol\PlaySoundPacket;
 use pocketmine\network\mcpe\protocol\types\LevelSoundEvent;
 use pocketmine\player\Player;
 use pocketmine\plugin\PluginBase;
@@ -275,6 +276,11 @@ class ZombieGame extends PluginBase {
                                     } else {
                                         if( $time == (60 * 5) ) {
                                             $players->sendTitle(' ', '좀비 감염자가 발생 했습니다.');
+                                            $vector = $player->getLocation();
+                                            $players->getNetworkSession()->sendDataPacket(
+                                                PlaySoundPacket::create("mob.enderdragon.growl", $vector->x, $vector->y, $vector->z, 0.1, 1)
+                                            );
+                                            
                                             $this->executeZombiePlayers(
                                                 function(Player $zombie) : void {
                                                     $this->setSkin($zombie, Server::getInstance()->getDataPath().'zombieSkin/Zombie.png');
@@ -416,7 +422,7 @@ class ZombieGame extends PluginBase {
 
                                         $this->setSkin($players, Server::getInstance()->getDataPath().'zombieSkin/Human.png');
                                         for($i = 0; $i < 36; $i++){
-                                            ExtendsLib::setItem($players, $i, ItemIds::SNOWBALL, "넉백용 눈덩이", 64);
+                                            ExtendsLib::setItem($players, $i, ItemIds::SNOWBALL, "넉백용 눈덩이", 16);
                                         }
 
                                         $players->teleport(new Vector3(10, 5, 20));
@@ -618,9 +624,14 @@ class ZombieGame extends PluginBase {
                     if( !($data['시작']['시간'] < (60 * 5)) )
                         return;
 
-                    if( ($entity = $event->getEntity()) instanceof Player && ($damager = $event->getDamager()) ) {
+                    if( ($entity = $event->getEntity()) instanceof Player && ($damager = $event->getDamager()) instanceof Player ) {
                         if( $this->isZombiePlayer($damager)  && $this->isGamePlayer($entity, '인간') ) {
                             $this->infectionZombie($entity);
+                        } 
+
+                        if( $this->isGamePlayer($damager, '인간') && $this->isGamePlayer($entity, '인간') )
+                        if( $this->isZombiePlayer($damager) && $this->isZombiePlayer($entity) ){  
+                            $event->cancel();
                         }
                     }
 
@@ -628,7 +639,15 @@ class ZombieGame extends PluginBase {
 
                 public function onThrow(ProjectileLaunchEvent $event)  : void {
                     $player = $event->getEntity()->getOwningEntity();
+
                     if( $player instanceof Player ) {
+                        if( isset(($this->data->getData())['시작']) )
+                        if( ($this->data->getData())['시작']['시간'] > (60 * 5) )
+                        if( $this->isGamePlayer($player, '인간')) {
+                            $event->cancel();
+                        }
+
+
                         if( $this->isZombiePlayer($event->getEntity()->getOwningEntity()) )
                             $event->cancel();
                     }
