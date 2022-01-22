@@ -92,6 +92,9 @@ class ZombieGame extends PluginBase {
 
                     $data = $this->data->getData();
 
+                    if( count($data['방']['인원']) === count(Server::getInstance()->getOnlinePlayers()) )
+                        $data['방']['대기시간'] = 20;
+
                     $data['방']['인원'][] = $player->getName();
 
                     $this->data->setData($data);
@@ -276,7 +279,7 @@ class ZombieGame extends PluginBase {
                                     } else {
                                         if( $time == (60 * 5) ) {
                                             $players->sendTitle(' ', '좀비 감염자가 발생 했습니다.');
-                                            $vector = $player->getLocation();
+                                            $vector = $players->getLocation();
                                             $players->getNetworkSession()->sendDataPacket(
                                                 PlaySoundPacket::create("mob.enderdragon.growl", $vector->x, $vector->y, $vector->z, 0.1, 1)
                                             );
