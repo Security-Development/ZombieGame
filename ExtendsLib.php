@@ -13,7 +13,16 @@
 use Closure;
 use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
+use pocketmine\entity\Entity;
+use pocketmine\entity\Location;
+use pocketmine\entity\projectile\Arrow;
+use pocketmine\entity\projectile\Snowball;
 use pocketmine\item\ItemFactory;
+use pocketmine\math\Vector3;
+use pocketmine\nbt\tag\CompoundTag;
+use pocketmine\nbt\tag\DoubleTag;
+use pocketmine\nbt\tag\FloatTag;
+use pocketmine\nbt\tag\ListTag;
 use pocketmine\network\mcpe\protocol\BossEventPacket;
 use pocketmine\player\Player;
 use pocketmine\plugin\PluginBase;
@@ -39,7 +48,7 @@ class ExtendsLib extends PluginBase {
         }
     }
 
-    public static function sendBossBarPacket(Player $player,string $title = '', float $percent = 1.0) : void{
+    public static function sendBossBarPacket(Player $player, string $title = '', float $percent = 1.0) : void{
         ExtendsLib::sendPackets($player, [
             BossEventPacket::show(
                 $player->getId(),
@@ -55,6 +64,24 @@ class ExtendsLib extends PluginBase {
                 $percent
             )
         ]);
+    }
+
+    public static function spawnArrow(Player $player) : void {
+        $location = $player->getLocation();
+        $location = Location::fromObject(
+            $player->getEyePos()->add(0, -1, 0),
+            $player->getWorld(),
+            ($location->yaw > 180 ? 360 : 0) - $location->yaw,
+            -$location->pitch
+        );
+
+        $entity = new Snowball(
+            $location,
+            $player
+        );
+        $entity->setHasGravity(false);
+
+        $entity->setMotion($player->getDirectionVector()->multiply(4));
     }
 
     public static function hideBossBarPacket(Player $player) : void {
