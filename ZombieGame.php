@@ -68,12 +68,12 @@ class ZombieGame extends PluginBase {
                             $this->JoinRoom($soruce);
                         } 
                     );
-                    $body->setTitle('방 목록');
+                    $body->setTitle('§l§8방 목록§r');
 
                     if( isset($data['방']) ) { 
-                        $body->addButton($data['방']['방장'].'님의 방');
+                        $body->addButton('§8- §l'.$data['방']['방장'].'§r§8님의 방 -§r');
                     } else {
-                        $body->setContent('생성된 방이 없습니다.');
+                        $body->setContent("\n §b• §f생성 된 방이 없습니다.§r\n\n");
                     }
 
                     $body->sendToPlayer($player);
@@ -81,21 +81,21 @@ class ZombieGame extends PluginBase {
 
                 private function JoinRoom(Player $player) : void {
                     if( !isset(($this->data->getData())['방']) ) {
-                        $player->sendMessage('해당 방이 사라졌습니다.');
+                        $player->sendMessage(' §b• §f방이 삭제되었습니다.§r');
                         return;
                     }
 
                     if( $this->isRoomPlayer($player) ) {
-                        $player->sendMessage('당신은 이미 대기방에 있습니다.');
+                        $player->sendMessage(' §b• §f이미 해당 방에 입장 중인 상태입니다.§r');
                         return;
                     }
 
                     $data = $this->data->getData();
 
+                    $data['방']['인원'][] = $player->getName();
+
                     if( count($data['방']['인원']) === count(Server::getInstance()->getOnlinePlayers()) )
                         $data['방']['대기시간'] = 20;
-
-                    $data['방']['인원'][] = $player->getName();
 
                     $this->data->setData($data);
 
@@ -103,7 +103,7 @@ class ZombieGame extends PluginBase {
 
                     $this->executeRoomPlayers(
                         function(Player $players) use($player, $data): void {
-                            $players->sendMessage($player->getName().'님께서 대기 방에 입장 하셨습니다. 현재인원 '.count($data['방']['인원']).'명');
+                            $players->sendMessage(" §b• §l§f".$player->getName()."§r§f님께서 방에 입장 하셨습니다.§r\n §f- 참가 중인 인원: §b".count($data['방']['인원'])."명§r");
                         }
                     );
 
@@ -113,7 +113,7 @@ class ZombieGame extends PluginBase {
                         LevelSoundEventPacket::nonActorSound(LevelSoundEvent::RECORD_MELLOHI, $vector, false)
                     );
                     
-                    ExtendsLib::setItem($player, 8, ItemIds::MAGMA_CREAM, "방 나가기");
+                    ExtendsLib::setItem($player, 8, ItemIds::MAGMA_CREAM, "§r§c방 나가기§r");
                     
                     
                 }
@@ -200,7 +200,7 @@ class ZombieGame extends PluginBase {
 
                         $this->executeGamePlayers(
                             function(Player $players) use($player) : void {
-                                $players->sendMessage($player->getName().'님이 좀비 바이러스에 감염 되었습니다.');
+                                $players->sendMessage(' §c• '.$player->getName().'§f님이 바이러스에 감염 되었습니다.§r');
                             }
                         );
 
@@ -275,14 +275,14 @@ class ZombieGame extends PluginBase {
                             $this->executeGamePlayers(
                                 function(Player $players) use($data, $time) : void {
                                     if( $time > (60 * 5)) {
-                                        $players->sendTitle(' ', '좀비 감여자가 '.($time - (60 * 5)).'초 후에 선정됩니다.');
+                                        $players->sendTitle('§l§e!', '§f감여자가 §e'.($time - (60 * 5)).'초 §f후에 선정됩니다§r');
                                     } else {
                                         if( $time == (60 * 5) ) {
                                             $vector = $players->getLocation();
                                             $players->getNetworkSession()->sendDataPacket(
                                                 PlaySoundPacket::create("mob.enderdragon.growl", $vector->x, $vector->y, $vector->z, 0.1, 1)
                                             );
-                                            $players->sendTitle(' ', '좀비 감염자가 발생 했습니다.');
+                                            $players->sendTitle('§l§c!§r', '§f감염자가 발생 했습니다§r');
                                             
                                             $this->executeZombiePlayers(
                                                 function(Player $zombie) : void {
@@ -295,7 +295,7 @@ class ZombieGame extends PluginBase {
                                             );
                                         }
 
-                                        $players->sendTip('게임 종료까지 '.$time.'초 남았습니다.');
+                                        $players->sendTip('§l§b! §r§f게임 종료까지 §b'.$time.'초 §f남았습니다 §l§b!§r');
                                     }
                                 }
                             );
@@ -316,24 +316,26 @@ class ZombieGame extends PluginBase {
                     $this->executeGamePlayers(
                         function(Player $players) use($data) : void {
 
+                            $players->teleport(new Vector3(10, 5, 20));
+                            ExtendsLib::setItem($players, 8, ItemIds::BOOK, '§r§f좀비 게임§r');
+
                             if( $data['시작']['시간'] <= 0 ) {
-                                $players->sendMessage('인간이 좀비 게임에서 승리했습니다.');
+                                $players->sendMessage(' §b• 인간§f이 게임에서 승리하였습니다.§r');
+                                return;
                             }
 
                             if( count($data['시작']['좀비']) > 0 ) {
-                                $players->sendMessage('좀비가 좀비 게임에서 승리했습니다.');
+                                $players->sendMessage(' §b• §a좀비§f가 게임에서 승리하였습니다.§r');
+                                return;
                             }
                             
-
-                            $players->teleport(new Vector3(10, 5, 20));
-                            ExtendsLib::setItem($players, 8, ItemIds::BOOK, '좀비 게임');
                         }
                     );
 
                     unset($data['시작']);
                     $this->data->setData($data);
 
-                    Server::getInstance()->broadcastMessage('좀비 게임이 종료 되었습니다. 이제 좀비 게임 방 생성이 가능합니다.');
+                    Server::getInstance()->broadcastMessage(' §f- 게임이 종료되어, 방 생성이 가능합니다.§r');
                 }
 
                 private function isGamePlayer(Player $player, string $index) : bool {
@@ -409,7 +411,7 @@ class ZombieGame extends PluginBase {
                                 unset($data['방']);
                                 unset($data['활성화']);
                                 $this->data->setData($data);
-                                Server::getInstance()->broadcastMessage('좀비 게임이 종료 되었습니다. 이제 좀비 게임 방 생성이 가능합니다.');
+                                Server::getInstance()->broadcastMessage(' §f- 게임이 종료되어, 방 생성이 가능합니다.§r');
                                 $task->cancel();
                                 return;
                             }
@@ -425,7 +427,7 @@ class ZombieGame extends PluginBase {
 
                                         $this->setSkin($players, Server::getInstance()->getDataPath().'zombieSkin/Human.png');
                                         for($i = 0; $i < 36; $i++){
-                                            ExtendsLib::setItem($players, $i, ItemIds::SNOWBALL, "넉백용 눈덩이", 16);
+                                            ExtendsLib::setItem($players, $i, ItemIds::SNOWBALL, "§r§f넉백 용 눈덩이§r", 16);
                                         }
 
                                         $players->teleport(new Vector3(10, 5, 20));
@@ -436,17 +438,28 @@ class ZombieGame extends PluginBase {
                                 return;
                             }
 
-                            $this->executeRoomPlayers(
-                                function(Player $players) use($data) : void {                                    
-                                    $players->sendTip('게임 시작까지 '.$data['방']['대기시간'].'초 남았습니다.');
-                                }
-                            );
+                            if( count($data['방']['인원']) > 1){
+                                $this->executeRoomPlayers(
+                                    function(Player $players) use($data) : void {                                    
+                                        $players->sendTip('§l§b! §r§f게임 시작까지 §b'.$data['방']['대기시간'].'초 §f남았습니다 §l§b!§r');
+                                    }
+                                );
 
-                            $data['방']['대기시간'] -= 1;
+                                $data['방']['대기시간'] -= 1;
 
-                            $this->data->setData($data);
+                                $this->data->setData($data);
+                            } else {
+                                $this->executeRoomPlayers(
+                                    function(Player $players) use($data) : void {                                    
+                                        $players->sendTip('플레이어 대기중...');
+                                        $data['방']['대기시간'] = 60;
 
+                                        $this->data->setData($data);
+                                    }
+                                );
+                            }
                         }
+
                     ), 20);
 
                 }
@@ -478,14 +491,14 @@ class ZombieGame extends PluginBase {
                     $this->data->setData($data);
                     $this->waitTime();
 
-                    ExtendsLib::setItem($player, 8, ItemIds::REDSTONE, '방 삭제');
+                    ExtendsLib::setItem($player, 8, ItemIds::FIRE_CHARGE, '§r§c방 삭제§r');
                     $vector = new Vector3(28, 5, -83);
                     $player->teleport($vector);
                     $player->getNetworkSession()->sendDataPacket(
                         LevelSoundEventPacket::nonActorSound(LevelSoundEvent::RECORD_MELLOHI, $vector, false)
                     );
-                    Server::getInstance()->broadcastMessage($player->getName().'님께서 좀비 게임방을 만드셨습니다. 참가 해서 게임을 즐겨보세요!.');
-                    $player->sendMessage('현재 당신의 방의 인원 수 : 1명');
+                    Server::getInstance()->broadcastMessage(' §b• §l§f'.$player->getName().'§r§f님께서 좀비 게임 방을 만드셨습니다.§r');
+                    $player->sendMessage(' §f- 참가 중인 인원: §b'.count($data['방']['인원']).'명§r');
                 }
 
                 private function removeRoom(Player $player, ?int $key) : void {
@@ -499,7 +512,7 @@ class ZombieGame extends PluginBase {
                             unset($data['활성화']);
                         }
 
-                        $player->sendMessage('당신은 좀비 게임 방을 삭제하셨습니다.');
+                        $player->sendMessage(' §b• §f게임 방을 삭제하였습니다.§r');
                         $this->executeRoomPlayers(
                             function(Player $players) use($player) : void {
                                 
@@ -508,7 +521,7 @@ class ZombieGame extends PluginBase {
                                 $players->getNetworkSession()->sendDataPacket(
                                     LevelSoundEventPacket::nonActorSound(LevelSoundEvent::STOP_RECORD, $vector, false)
                                 );
-                                ExtendsLib::setItem($players, 8, ItemIds::BOOK, '좀비 게임');
+                                ExtendsLib::setItem($players, 8, ItemIds::BOOK, '§r§f좀비 게임§r');
 
                                 if( $players->getName() == $player->getName() )
                                     return;
@@ -591,23 +604,23 @@ class ZombieGame extends PluginBase {
                         $this->sendQuit($player, '방', $this->playerRoomKey($player), '인원');
                     }
 
-                    $player->sendMessage('당신은 게임에서 나가셨습니다.');
+                    $player->sendMessage(' §b• §f방에서 퇴장하셨습니다.§r');
                     $player->getNetworkSession()->sendDataPacket(
                         LevelSoundEventPacket::nonActorSound(LevelSoundEvent::STOP_RECORD, new Vector3(10, 5, 20), false)
                     );
 
-                    ExtendsLib::setItem($player, 8, ItemIds::BOOK, "좀비 게임");
+                    ExtendsLib::setItem($player, 8, ItemIds::BOOK, "§r§f좀비 게임§r");
 
                     $this->executeRoomPlayers(
                         function(Player $players) use($player) : void {
-                            $players->sendMessage($player->getName().'님이 게임에서 나가셨습니다.');
+                            $players->sendMessage(' §b• §f'.$player->getName().'님이 게임에서 퇴장하셨습니다.§r');
                         }
                     );
                     
 
                     $this->executeGamePlayers(
                         function(Player $players) use($player) : void {
-                            $players->sendMessage($player->getName().'님이 게임에서 나가셨습니다.');
+                            $players->sendMessage(' §b• §f'.$player->getName().'님이 게임에서 퇴장하셨습니다.§r');
                         }
                     );
                 }
@@ -666,7 +679,7 @@ class ZombieGame extends PluginBase {
                     foreach($saction->getActions() as $action) {
                         if( $action instanceof SlotChangeAction ){
                             if( (match($action->getSourceItem()->getName()){
-                                '좀비 게임', '방 삭제', '방 나가기' => true,
+                                '§r§f좀비 게임§r', '§r§c방 삭제§r', '§r§c방 나가기§r' => true,
                                 default => false
                             }) ) {
                                 $event->cancel();
@@ -685,7 +698,7 @@ class ZombieGame extends PluginBase {
                     if( $this->bool[$player->getName()] )
                         return;
 
-                    if( $event->getItem()->getName() === '좀비 게임' ) {
+                    if( $event->getItem()->getName() === '§r§f좀비 게임§r' ) {
                         $this->bool[$player->getName()] = true;
                         $this->reverseBool($player);
 
@@ -710,15 +723,16 @@ class ZombieGame extends PluginBase {
     
                         );
     
-                        $body->setTitle('좀비 게임');
-                        $body->addButton('방 목록');
-                        $body->addButton('방 만들기');
+                        $body->setTitle('§l§8좀비 게임§r');
+                        $body->setContent("\n §b• §f프로세스를 선택해 주세요.§r\n\n");
+                        $body->addButton("§l§8방 목록§r\n§8- 생성되어있는 방 목록을 확인합니다 -§r");
+                        $body->addButton("§l§8방 만들기§r\n§8- 새로운 게임 방을 구축합니다 -§r");
     
                         $event->cancel();
     
                         $body->sendToPlayer($player);
 
-                    } elseif( $event->getItem()->getName() === '방 삭제' ) {
+                    } elseif( $event->getItem()->getName() === '§r§c방 삭제§r' ) {
                         $this->removeRoom(
                             $player, 
                             $this->getKey($player->getName(), $this->getKey($player->getName()))
@@ -727,7 +741,7 @@ class ZombieGame extends PluginBase {
 
                         $event->cancel();
 
-                    } elseif( $event->getItem()->getName() === '방 나가기') {
+                    } elseif( $event->getItem()->getName() === '§r§c방 나가기§r') {
                         $this->Quit($player);
                     }
                     
@@ -742,7 +756,7 @@ class ZombieGame extends PluginBase {
                     if( !(Server::getInstance()->isOp($event->getPlayer()->getName())) )
                         $event->cancel();
 
-                    if( $event->getItem()->getName() === '방 삭제' )
+                    if( $event->getItem()->getName() === '§r§c방 삭제§r' )
                         $event->cancel();
                 }
 
@@ -751,7 +765,7 @@ class ZombieGame extends PluginBase {
 
                     foreach($event->getDrops() as $key => $item)
                     {
-                        if( $item->getName() === '좀비 게임' || $item->getName() == '방 삭제' || $item == '방 나가기')
+                        if( $item->getName() === '§r§f좀비 게임§r' || $item->getName() == '§r§c방 삭제§r' || $item == '§r§c방 나가기§r')
                             unset($drops[$key]);
                     }
 
@@ -768,7 +782,7 @@ class ZombieGame extends PluginBase {
                             $this->isRoomPlayer($player)
                         )
                      ) {
-                        ExtendsLib::setItem($player, 8, ItemIds::BOOK, '좀비 게임');
+                        ExtendsLib::setItem($player, 8, ItemIds::BOOK, '§r§f좀비 게임§r');
 
                     }
                 }
@@ -778,15 +792,16 @@ class ZombieGame extends PluginBase {
 
                     $this->bool[$player->getName()] = false;
 
-                    if( $player->getInventory()->getItem(8)->getCustomName() === '좀비 게임' )
+                    if( $player->getInventory()->getItem(8)->getCustomName() === '§r§f좀비 게임§r' )
                         return;
-                    ExtendsLib::setItem($player, 8, ItemIds::BOOK, '좀비 게임');
+                    ExtendsLib::setItem($player, 8, ItemIds::BOOK, '§r§f좀비 게임§r');
                 }
 
                 public function onQuit(PlayerQuitEvent $event) : void {
                     $player = $event->getPlayer();
 
-                    $this->Quit($player);
+                    if( $this->isRoomPlayer($player) || $this->isGamePlayer($player, '인원'))
+                        $this->Quit($player);
 
                 }
 
