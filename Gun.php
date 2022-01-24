@@ -1,0 +1,121 @@
+<?php
+
+/**
+ * @name Gun
+ * @author Neo-Developer
+ * @main Neo\Gun
+ * @version 0.1.0
+ * @api 4.0.6
+ */
+
+ namespace Neo;
+
+use pocketmine\entity\Attribute;
+use pocketmine\entity\Location;
+use pocketmine\entity\projectile\Arrow;
+use pocketmine\event\entity\ProjectileLaunchEvent;
+use pocketmine\event\Listener;
+use pocketmine\event\player\PlayerItemUseEvent;
+use pocketmine\event\player\PlayerJoinEvent;
+use pocketmine\item\ItemIds;
+use pocketmine\network\mcpe\protocol\MovePlayerPacket;
+use pocketmine\network\mcpe\protocol\PlaySoundPacket;
+use pocketmine\plugin\PluginBase;
+use pocketmine\scheduler\ClosureTask;
+use pocketmine\scheduler\TaskScheduler;
+use pocketmine\Server;
+
+class Gun extends PluginBase {
+    public static array $bool = [];
+
+    public function onEnable() : void {
+        $this->getServer()->getPluginManager()->registerEvents(
+            new class($this->getScheduler()) implements Listener {
+
+
+                public function __construct(private TaskScheduler $task)
+                {
+                    
+                }
+
+                public function onJoin(PlayerJoinEvent $event) {
+                    Gun::$bool[$event->getPlayer()->getName()] = [
+                        "탄창" => 20,
+                        "확인" => false
+                    ];
+                }
+
+                public function pullArrow(PlayerItemUseEvent $event) : void {
+                    $player = $event->getPlayer();
+
+                    if( $event->getItem()->getId() === ItemIds::BOW ) {
+                        if( Gun::$bool[$player->getName()]['확인'] )
+                            return;
+                        
+                        if( Gun::$bool[$player->getName()]['탄창'] <= 0 ) {
+                            $player->sendTip('§c재장전중...');
+                            $event->cancel();
+                            return;
+                        }
+
+                        Gun::$bool[$player->getName()]['확인'] = true;
+                        $task = null;
+                        $bool = false;
+
+                        $this->task->scheduleDelayedTask(new ClosureTask(
+                            function() use(&$bool, $player) : void {
+                                if( $player->getItemUseDuration() > 5)
+                                    $bool = true;
+                                
+                                if($bool)
+                                    $task = $this->task->scheduleRepeatingTask(new ClosureTask(
+                                        function() use(&$task, $player): void {
+                                            if( Gun::$bool[$player->getName()]['확인'] )
+                                            {
+                                                if( Gun::$bool[$player->getName()]["탄창"] <= 0 )
+                                                {
+                                                    $player->sendTip('§c재장전중...');
+                                                    $this->task->scheduleDelayedTask(new ClosureTask(
+                                                        function() use($player) : void {
+                                                            $player->sendTip('§a장전완료');
+                                                            Gun::$bool[$player->getName()]["탄창"] = 20;
+                                                        }
+                                                    ), 20 * 4);
+                                                    $task->cancel();
+
+                                                    return;
+                                                }
+                                                $location = $player->getLocation();
+                                                ExtendsLib::spawnArrow($player);
+                                                Gun::$bool[$player->getName()]["탄창"] -= 1;
+                                                $player->sendTip('남은 총알 : '.Gun::$bool[$player->getName()]["탄창"].' / 20');
+                                                //$player->sendMessage($player->getItemUseDuration());
+                                                $player->getNetworkSession()->sendDataPacket(
+                                                    PlaySoundPacket::create("ambient.weather.lightning.impact", $location->x, $location->y, $location->z, 0.1, 1)
+                                                );
+
+                                            } else {
+                                                $task->cancel();
+                                            }
+                                        }
+                                    ), 5);
+                            }
+
+                        ), 8);
+
+                    }
+
+                }
+
+                public function shotArrow(ProjectileLaunchEvent $event) : void {
+                    if( $event->getEntity() instanceof Arrow ) {
+                        Gun::$bool[$event->getEntity()->getOwningEntity()->getNameTag()]['확인'] = false;
+                        $event->cancel();
+                    }
+                }
+            }
+        , $this);
+    }
+}
+
+?>
