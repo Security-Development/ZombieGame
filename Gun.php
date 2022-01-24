@@ -10,20 +10,19 @@
 
  namespace Neo;
 
-use pocketmine\entity\Attribute;
-use pocketmine\entity\Location;
 use pocketmine\entity\projectile\Arrow;
 use pocketmine\event\entity\ProjectileLaunchEvent;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerItemUseEvent;
 use pocketmine\event\player\PlayerJoinEvent;
 use pocketmine\item\ItemIds;
+use pocketmine\network\mcpe\protocol\MoveActorAbsolutePacket;
+use pocketmine\network\mcpe\protocol\MoveActorDeltaPacket;
 use pocketmine\network\mcpe\protocol\MovePlayerPacket;
 use pocketmine\network\mcpe\protocol\PlaySoundPacket;
 use pocketmine\plugin\PluginBase;
 use pocketmine\scheduler\ClosureTask;
 use pocketmine\scheduler\TaskScheduler;
-use pocketmine\Server;
 
 class Gun extends PluginBase {
     public static array $bool = [];
@@ -52,11 +51,6 @@ class Gun extends PluginBase {
                         if( Gun::$bool[$player->getName()]['확인'] )
                             return;
                         
-                        if( Gun::$bool[$player->getName()]['탄창'] <= 0 ) {
-                            $player->sendTip('§c재장전중...');
-                            $event->cancel();
-                            return;
-                        }
 
                         Gun::$bool[$player->getName()]['확인'] = true;
                         $task = null;
@@ -70,7 +64,13 @@ class Gun extends PluginBase {
                                 if($bool)
                                     $task = $this->task->scheduleRepeatingTask(new ClosureTask(
                                         function() use(&$task, $player): void {
-                                            if( Gun::$bool[$player->getName()]['확인'] )
+                                            if( $player->isOnGround() ) {
+                                                $player->sendTip('§c공중에서는 총을 쏠수 없습니다.');
+                                                $task->cancel();
+                                                return;
+                                            }
+
+                                            if( Gun::$bool[$player->getName()]['확인'])
                                             {
                                                 if( Gun::$bool[$player->getName()]["탄창"] <= 0 )
                                                 {
@@ -86,10 +86,13 @@ class Gun extends PluginBase {
                                                     return;
                                                 }
                                                 $location = $player->getLocation();
+                                                //$location->y += 1.621;
+
                                                 ExtendsLib::spawnArrow($player);
                                                 Gun::$bool[$player->getName()]["탄창"] -= 1;
                                                 $player->sendTip('남은 총알 : '.Gun::$bool[$player->getName()]["탄창"].' / 20');
-                                                //$player->sendMessage($player->getItemUseDuration());
+                                                $player->teleport($location, $location->yaw, $location->pitch -2);
+
                                                 $player->getNetworkSession()->sendDataPacket(
                                                     PlaySoundPacket::create("ambient.weather.lightning.impact", $location->x, $location->y, $location->z, 0.1, 1)
                                                 );
@@ -101,7 +104,7 @@ class Gun extends PluginBase {
                                     ), 5);
                             }
 
-                        ), 8);
+                        ), 10);
 
                     }
 
