@@ -11,6 +11,9 @@
  namespace Neo;
 
 use pocketmine\entity\projectile\Arrow;
+use pocketmine\entity\projectile\Snowball;
+use pocketmine\event\entity\ProjectileHitEntityEvent;
+use pocketmine\event\entity\ProjectileHitEvent;
 use pocketmine\event\entity\ProjectileLaunchEvent;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerItemUseEvent;
@@ -20,6 +23,7 @@ use pocketmine\network\mcpe\protocol\MoveActorAbsolutePacket;
 use pocketmine\network\mcpe\protocol\MoveActorDeltaPacket;
 use pocketmine\network\mcpe\protocol\MovePlayerPacket;
 use pocketmine\network\mcpe\protocol\PlaySoundPacket;
+use pocketmine\player\Player;
 use pocketmine\plugin\PluginBase;
 use pocketmine\scheduler\ClosureTask;
 use pocketmine\scheduler\TaskScheduler;
@@ -44,6 +48,15 @@ class Gun extends PluginBase {
                     ];
                 }
 
+                public function onHit(ProjectileHitEvent $event) : void {
+                    if( ($player = $event->getEntity()->getOwningEntity()) instanceof Player && ($entity = $event->getEntity()) instanceof Snowball ) {
+                        if( $event instanceof ProjectileHitEntityEvent) {
+                            if( ($target = $event->getEntityHit()) instanceof Player ) {
+                            }
+                        }
+                    }
+                }
+
                 public function pullArrow(PlayerItemUseEvent $event) : void {
                     $player = $event->getPlayer();
 
@@ -64,7 +77,7 @@ class Gun extends PluginBase {
                                 if($bool)
                                     $task = $this->task->scheduleRepeatingTask(new ClosureTask(
                                         function() use(&$task, $player): void {
-                                            if( $player->isOnGround() ) {
+                                            if( !$player->isOnGround() ) {
                                                 $player->sendTip('§c공중에서는 총을 쏠수 없습니다.');
                                                 $task->cancel();
                                                 return;
@@ -77,8 +90,10 @@ class Gun extends PluginBase {
                                                     $player->sendTip('§c재장전중...');
                                                     $this->task->scheduleDelayedTask(new ClosureTask(
                                                         function() use($player) : void {
+                                                            if( Gun::$bool[$player->getName()]["탄창"] > 0)
+                                                                return;
                                                             $player->sendTip('§a장전완료');
-                                                            Gun::$bool[$player->getName()]["탄창"] = 20;
+                                                            Gun::$bool[$player->getName()]["탄창"] = 30;
                                                         }
                                                     ), 20 * 4);
                                                     $task->cancel();
@@ -90,8 +105,8 @@ class Gun extends PluginBase {
 
                                                 ExtendsLib::spawnArrow($player);
                                                 Gun::$bool[$player->getName()]["탄창"] -= 1;
-                                                $player->sendTip('남은 총알 : '.Gun::$bool[$player->getName()]["탄창"].' / 20');
-                                                $player->teleport($location, $location->yaw, $location->pitch -2);
+                                                $player->sendTip('남은 총알 : '.Gun::$bool[$player->getName()]["탄창"].' / 30');
+                                                $player->teleport($location, $location->yaw, $location->pitch - 0.75);
 
                                                 $player->getNetworkSession()->sendDataPacket(
                                                     PlaySoundPacket::create("ambient.weather.lightning.impact", $location->x, $location->y, $location->z, 0.1, 1)
@@ -101,10 +116,10 @@ class Gun extends PluginBase {
                                                 $task->cancel();
                                             }
                                         }
-                                    ), 5);
+                                    ), 2);
                             }
 
-                        ), 10);
+                        ), 8);
 
                     }
 
