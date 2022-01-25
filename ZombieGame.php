@@ -25,6 +25,7 @@ use pocketmine\event\player\PlayerDeathEvent;
 use pocketmine\event\player\PlayerDropItemEvent;
 use pocketmine\event\player\PlayerExhaustEvent;
 use pocketmine\event\player\PlayerInteractEvent;
+use pocketmine\event\player\PlayerItemUseEvent;
 use pocketmine\event\player\PlayerJoinEvent;
 use pocketmine\event\player\PlayerQuitEvent;
 use pocketmine\event\player\PlayerRespawnEvent;
@@ -34,6 +35,7 @@ use pocketmine\item\ItemIds;
 use pocketmine\math\Vector3;
 use pocketmine\network\mcpe\protocol\LevelSoundEventPacket;
 use pocketmine\network\mcpe\protocol\PlaySoundPacket;
+use pocketmine\network\mcpe\protocol\types\BossBarColor;
 use pocketmine\network\mcpe\protocol\types\LevelSoundEvent;
 use pocketmine\player\Player;
 use pocketmine\plugin\PluginBase;
@@ -195,6 +197,7 @@ class ZombieGame extends PluginBase {
                         $key = $this->playerGameKey($player, '인간');
                         $data['시작']['좀비'][] = $data['시작']['인간'][$key];
                         unset($data['시작']['인간'][$key]);
+                        unset($data['시작']['감염'][$player->getName()]);
                         $this->data->setData($data);
                         $this->onCleaning();
 
@@ -207,6 +210,7 @@ class ZombieGame extends PluginBase {
                         for($i = 0; $i < 36; $i++){
                             ExtendsLib::setItem($player, $i, ItemIds::AIR);
                         }
+                        Gun::$bool[$player->getName()]['확인'] = false;
 
                         $this->setSkin($player, Server::getInstance()->getDataPath().'zombieSkin/Zombie.png');
                     }
@@ -252,7 +256,8 @@ class ZombieGame extends PluginBase {
                         '인원' => $data['방']['인원'],
                         '인간' => $data['방']['인원'],
                         '좀비' => [],
-                        '시간' => (60 * 5) + 20
+                        '시간' => (60 * 5) + 20,
+                        '감염' => []
                     ];
                     unset($data['방']);
                     unset($data['활성화']);
@@ -275,7 +280,17 @@ class ZombieGame extends PluginBase {
                             $this->executeGamePlayers(
                                 function(Player $players) use($data, $time) : void {
                                     if( $time > (60 * 5)) {
-                                        $players->sendTitle('§l§e!', '§f감여자가 §e'.($time - (60 * 5)).'초 §f후에 선정됩니다§r');
+                                        $color = BossBarColor::RED;
+
+                                        if( $time > (60 * 5) + 5)
+                                        $color = BossBarColor::YELLOW;
+
+                                        if( $time > (60 * 5) + 10)
+                                            $color = BossBarColor::GREEN;
+
+
+                                        ExtendsLib::hideBossBarPacket($players);
+                                        ExtendsLib::sendBossBarPacket($players, '§l§e! §f감염자가 §e'.($time - (60 * 5)).'초 §f후에 선정됩니다§r', $color);
                                     } else {
                                         if( $time == (60 * 5) ) {
                                             $vector = $players->getLocation();
@@ -283,6 +298,8 @@ class ZombieGame extends PluginBase {
                                                 PlaySoundPacket::create("mob.enderdragon.growl", $vector->x, $vector->y, $vector->z, 0.1, 1)
                                             );
                                             $players->sendTitle('§l§c!§r', '§f감염자가 발생 했습니다§r');
+                                            ExtendsLib::setItem($players, 0, ItemIds::BOW, "§r§f총§r", 1);
+                                            ExtendsLib::setItem($players, 1, ItemIds::ARROW, "§r§f총§r", 1);
                                             
                                             $this->executeZombiePlayers(
                                                 function(Player $zombie) : void {
@@ -294,8 +311,7 @@ class ZombieGame extends PluginBase {
                                                 }
                                             );
                                         }
-
-                                        $players->sendTip('§l§b! §r§f게임 종료까지 §b'.$time.'초 §f남았습니다 §l§b!§r');
+                                        ExtendsLib::sendBossBarPacket($players, '§l§b! §r§f게임 종료까지 §b'.$time.'초 §f남았습니다 §l§b!§r');
                                     }
                                 }
                             );
@@ -318,6 +334,7 @@ class ZombieGame extends PluginBase {
 
                             $players->teleport(new Vector3(10, 5, 20));
                             ExtendsLib::setItem($players, 8, ItemIds::BOOK, '§r§f좀비 게임§r');
+                            ExtendsLib::hideBossBarPacket($players);
 
                             if( $data['시작']['시간'] <= 0 ) {
                                 $players->sendMessage(' §b• 인간§f이 게임에서 승리하였습니다.§r');
@@ -426,10 +443,10 @@ class ZombieGame extends PluginBase {
                                         );
 
                                         $this->setSkin($players, Server::getInstance()->getDataPath().'zombieSkin/Human.png');
-                                        for($i = 0; $i < 36; $i++){
-                                            ExtendsLib::setItem($players, $i, ItemIds::SNOWBALL, "§r§f넉백 용 눈덩이§r", 16);
-                                        }
 
+                                        ExtendsLib::setItem($players, 8, ItemIds::AIR);
+                                        $players->setNameTagVisible(false);
+                                        $players->setNameTagAlwaysVisible(false);
                                         $players->teleport(new Vector3(10, 5, 20));
                                     }
                                 );
@@ -451,7 +468,7 @@ class ZombieGame extends PluginBase {
                             } else {
                                 $this->executeRoomPlayers(
                                     function(Player $players) use($data) : void {                                    
-                                        $players->sendTip('플레이어 대기중...');
+                                        $players->sendTip('§l§b! §r§f추가 플레이어를 기다리는 중 §l§b!§r');
                                         $data['방']['대기시간'] = 60;
 
                                         $this->data->setData($data);
@@ -631,6 +648,7 @@ class ZombieGame extends PluginBase {
                 public function FallDamge(EntityDamageEvent $event) : void {
                     if( $event->getCause() === EntityDamageEvent::CAUSE_FALL )
                         $event->cancel();
+                        
                 }
                 public function onDamage(EntityDamageByEntityEvent $event) : void {
                     $data = $this->data->getData();
@@ -641,14 +659,40 @@ class ZombieGame extends PluginBase {
                         return;
 
                     if( ($entity = $event->getEntity()) instanceof Player && ($damager = $event->getDamager()) instanceof Player ) {
+                        if( ($this->isZombiePlayer($damager) && $this->isZombiePlayer($entity)) || ($this->isGamePlayer($damager, '인간') && $this->isGamePlayer($entity, '인간')) ){  
+                            $event->cancel();
+                            return;
+                        }
+
                         if( $this->isZombiePlayer($damager)  && $this->isGamePlayer($entity, '인간') ) {
+                            $data = $this->data->getData();
+                            if( !isset($data['시작']['감염'][$entity->getName()]) ) {
+                                $data['시작']['감염'][$entity->getName()] = 0;
+                                $this->data->setData($data);
+                            }
+                            $data = $this->data->getData();
+
+                            if( $data['시작']['감염'][$entity->getName()] < 2 ) {
+                                $data['시작']['감염'][$entity->getName()] += 1;
+                                $this->data->setData($data);
+                                $inf = ($this->data->getData())['시작']['감염'][$entity->getName()];
+                                $damager->sendTip($entity->getName().'님의 감염도 : '.floor(($inf * 33) + 1).'%');
+                                $entity->sendTip('당신의 감염도 : '.floor(($inf * 33) + 1).'%');
+                                return;
+                            } 
+                            $inf = ($this->data->getData())['시작']['감염'][$entity->getName()];
+                            $damager->sendTip($entity->getName().'님의 감염도 : '.floor(($inf * 33) + 1).'%');
+                            $entity->sendTip('당신의 감염도 : '.floor(($inf * 33) + 1).'%');
                             $this->infectionZombie($entity);
+
+
                         } 
 
-                        if( $this->isGamePlayer($damager, '인간') && $this->isGamePlayer($entity, '인간') )
-                        if( $this->isZombiePlayer($damager) && $this->isZombiePlayer($entity) ){  
-                            $event->cancel();
+                        if( $this->isGamePlayer($damager, '인간') ) {
+                            $event->setAttackCooldown(5);
+                            $event->setKnockBack(0.25);
                         }
+
                     }
 
                 }
