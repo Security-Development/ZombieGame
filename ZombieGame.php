@@ -672,7 +672,7 @@ class ZombieGame extends PluginBase {
                             }
                             $data = $this->data->getData();
 
-                            if( $data['시작']['감염'][$entity->getName()] >= 2 ) {
+                            if( $data['시작']['감염'][$entity->getName()] <= 2 ) {
                                 $data['시작']['감염'][$entity->getName()] += 1;
                                 $this->data->setData($data);
                                 $inf = ($this->data->getData())['시작']['감염'][$entity->getName()];
