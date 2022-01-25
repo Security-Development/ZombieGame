@@ -672,18 +672,16 @@ class ZombieGame extends PluginBase {
                             }
                             $data = $this->data->getData();
 
-                            if( $data['시작']['감염'][$entity->getName()] < 2 ) {
+                            if( $data['시작']['감염'][$entity->getName()] >= 2 ) {
                                 $data['시작']['감염'][$entity->getName()] += 1;
                                 $this->data->setData($data);
                                 $inf = ($this->data->getData())['시작']['감염'][$entity->getName()];
                                 $damager->sendTip($entity->getName().'님의 감염도 : '.floor(($inf * 33) + 1).'%');
                                 $entity->sendTip('당신의 감염도 : '.floor(($inf * 33) + 1).'%');
-                                return;
+                                
+                                if( $inf >= 3) 
+                                    $this->infectionZombie($entity);
                             } 
-                            $inf = ($this->data->getData())['시작']['감염'][$entity->getName()];
-                            $damager->sendTip($entity->getName().'님의 감염도 : '.floor(($inf * 33) + 1).'%');
-                            $entity->sendTip('당신의 감염도 : '.floor(($inf * 33) + 1).'%');
-                            $this->infectionZombie($entity);
 
 
                         } 
