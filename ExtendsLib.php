@@ -90,18 +90,21 @@ class ExtendsLib extends PluginBase {
         );
     }
 
-    public static function initCommand(string $commandName, string $descript, Closure $function) {
-        Server::getInstance()->getCommandMap()->register($commandName, new class($commandName, $descript, $function) extends Command {
+    public static function initCommand(string $commandName, string $descript, Closure $function, ?string $permision = null) {
+        Server::getInstance()->getCommandMap()->register($commandName, new class($commandName, $descript, $function, $permision) extends Command {
 
-            public function __construct(private string $commandName, private string $descript, private Closure $function) {
+            public function __construct(private string $commandName, private string $descript, private Closure $function, private ?string $permision) {
                 parent::__construct(
                     $this->commandName,
                     $this->descript
                 );
+                $this->setPermission($this->permision);
             }
 
 
             public function execute(CommandSender $sender, string $commandLabel, array $args) : bool {
+                if(!$this->testPermission($sender))
+                    return true;
                 ($this->function)($sender, $args);
              return false;
             }
